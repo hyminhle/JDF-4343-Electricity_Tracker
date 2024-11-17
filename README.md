@@ -37,7 +37,7 @@ As a facility manager, I want to receive alerts when consumption exceeds set lim
 As an executive, I want to generate monthly energy usage reports to present to the board during meetings.
 Technology Stack
 Frontend: React.js, HTML5, CSS3
-Backend: Node.js, Express
+Backend: Python Flask, CORS, Matplotlib
 Database: MySQL/PostgreSQL for data storage
 Visualization: D3.js, Highcharts for graphing and heat maps
 Data Integration: Support for CSV/Excel file imports and SQL queries
