@@ -1,43 +1,27 @@
-Project Overview
-The Electricity Visualizer and Analyzer is a real-time tool designed to help users, particularly energy companies like SLB, track, analyze, and visualize electricity consumption data across multiple facilities. The tool integrates a variety of data visualization techniques, such as graphs, calendars, and interactive heat maps, to provide users with actionable insights into their energy usage patterns. The goal is to support energy management, efficiency improvements, and regulatory compliance by offering an intuitive and customizable interface that caters to different user roles such as engineers, managers, and executives.
+# Electricity Consumption Tracker
 
-Key Features
-Line Graph Comparer and Graphs Overlay
+**Brief Summary**:  
+The Electricity Consumption Tracker is a web application designed to help users monitor and visualize their electricity consumption. The application displays data through a line graph and provides relevant statistics about energy usage, including the average daily consumption, total cost, and more. The data can be uploaded via CSV files for different months, and the system generates real-time visualizations to help users make informed decisions about energy usage.
 
-Visualize and compare energy usage data over different periods.
-Easily overlay data sets for in-depth analysis.
-Interactive Maps / Heat Maps
+# Release Notes
 
-Interactive heat maps allow users to view energy consumption across multiple buildings and locations.
-Visual indicators (color-coded) highlight areas of high, moderate, and low energy usage.
-Consumption Calendar for Days & Months
+## Release 0.0.0
 
-Track energy consumption over time using a calendar interface.
-Compare daily, weekly, or monthly trends to identify patterns and anomalies.
-System Performance Dashboards
+This is the initial release of the Electricity Consumption Tracker application.
 
-Centralized dashboards that display real-time and historical energy data.
-Customizable reports for users to generate insights and share with management.
-Customizable Alerts for Outliers
+### Features
 
-Set thresholds for consumption, with alerts for over or under-consumption.
-Receive notifications when energy usage exceeds set limits, helping users take immediate action.
-Data Import Integration (CSV/Excel/SQL)
+- **CSV File Upload**: Users can upload CSV files containing monthly energy consumption data for visualization.
+- **Line Graph Display**: The uploaded data is displayed on a dynamic line graph, comparing energy consumption over time.
+- **Real-time Data Fetching**: The app fetches data from the backend to display the latest energy statistics.
+- **Stats Display**: Includes detailed energy consumption stats such as average usage, total cost, max usage, and more for each month (e.g., June, July).
 
-Import energy data from external sources to produce visualizations and reports.
-Seamlessly integrate with existing systems for data consistency.
-Target Users
-Grid Engineers: Monitor real-time energy consumption, compare historical data, and ensure system performance aligns with expectations.
-Facility Managers: Track energy usage across multiple facilities and generate reports for decision-making.
-Executives: View high-level energy consumption trends and insights to guide corporate energy strategies.
-Environmental Managers: Ensure energy usage is aligned with sustainability goals by tracking energy footprints and performance metrics.
-Key User Stories
-As a grid engineer, I want to compare energy consumption across multiple buildings using graphs so that I can optimize energy distribution.
-As a facility manager, I want to receive alerts when consumption exceeds set limits so that I can prevent energy overuse.
-As an executive, I want to generate monthly energy usage reports to present to the board during meetings.
-Technology Stack
-Frontend: React.js, HTML5, CSS3
-Backend: Python Flask, CORS, Matplotlib
-Database: MySQL/PostgreSQL for data storage
-Visualization: D3.js, Highcharts for graphing and heat maps
-Data Integration: Support for CSV/Excel file imports and SQL queries
+### Bug Fixes
+
+- N/A: As this is the first release, no bug fixes were necessary.
+
+### Known Issues
+
+- **Graph not displaying on initial load**: Sometimes, the graph may fail to render if the data is not available immediately. This issue will be addressed in the next release.
+- **Stats Box Updates**: The stats box may not reflect updates correctly after new data is uploaded. This will be fixed in future versions to ensure proper reactivity.
+- **Uploaded Data Not Syncing with Graph and Stats box**: The data in the CSV files, while can be uploaded, are not synced with the line graph and stats box. 
