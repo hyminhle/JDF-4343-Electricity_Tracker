@@ -2,8 +2,7 @@ body {
   margin: 0; /* Remove default margin */
   padding: 0; /* Remove default padding */
   width: 70vw;
-  height: 100vh;
-  overflow: hidden; /* Prevent scrolling */
+  height: 70vh;
 }
 
 .App {
