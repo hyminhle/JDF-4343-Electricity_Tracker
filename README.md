@@ -1,3 +1,4 @@
+
 # Electricity Consumption Tracker
 
 **Brief Summary**:  

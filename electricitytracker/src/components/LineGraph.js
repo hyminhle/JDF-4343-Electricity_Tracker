@@ -5,199 +5,323 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 Chart.register(annotationPlugin);
 
 const API_URL = "http://127.0.0.1:5000/stats";
-fetch(API_URL)
-  .then(response => response.json())
-  .then(data => console.log(data))
-  .catch(error => console.error('Error:', error));
 
 const LineGraph = () => {
   const chartRef = useRef(null);
   const [stats, setStats] = useState(null);
-  const [showThresholdLine, setShowThresholdLine] = useState(true); // State to toggle the line
-  const [thresholdValue, setThresholdValue] = useState(11000); // State to store threshold value
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [chartInstance, setChartInstance] = useState(null);
+  const [threshold, setThreshold] = useState(10);
+  const [showDifferenceLines, setShowDifferenceLines] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetch('http://localhost:5000/stats');
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch data');
+      }
       const data = await response.json();
       setStats(data);
-    };
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (loading || error || !stats) return;
+
+    if (chartInstance) {
+      chartInstance.destroy();
+    }
 
     const ctx = chartRef.current.getContext('2d');
     
-    const labels = Array.from({ length: 30 }, (_, i) => i + 1);
+    const maxDays = Math.max(
+      stats.currentMonthData?.length || 0,
+      stats.previousMonthData?.length || 0
+    );
+    
+    const labels = Array.from({ length: maxDays }, (_, i) => i + 1);
 
-    const juneData = [
-      9985.29, 9521.7, 10609.85, 10722.44, 11088.73, 11040.78, 10769.13, 9836.28, 9748.68, 10692.76,
-      11106.9, 11477.61, 11367.07, 10921.37, 9892.04, 9730.07, 10540.26, 11047.02, 11579.19, 11121.86,
-      10579.89, 9616.22, 9431.63, 10173.91, 10353.77, 10372.18, 10433.04, 10108.24, 8982.05, 8907.47
-    ];
+    // Calculate differences for annotations
+    const currentMonthData = stats.currentMonthData || [];
+    const previousMonthData = stats.previousMonthData || [];
+    
+    const differences = currentMonthData.map((curr, idx) => {
+      const prev = previousMonthData[idx];
+      return prev ? Math.abs(curr - prev) : 0;
+    });
 
-    const julyData = [
-      10125.33, 10414.75, 10171.08, 8868.59, 9608.99, 8923.4, 8846.87, 1856.47, 1311.32, 9300.11,
-      10386.06, 9720.78, 9031.83, 9058.24, 10225.96, 10276.91, 10683.81, 10844.33, 10395.79, 9062.87,
-      8833.78, 10069.03, 10537.97, 10665.36, 10967.56, 10521.47, 9196.81, 9144.67, 9997.58, 10688.94,
-      11317.71
-    ];
+    const maxDiffIndex = differences.indexOf(Math.max(...differences));
+    const minDiffIndex = differences.indexOf(Math.min(...differences));
 
-    const differences = juneData.map((juneValue, index) => Math.abs(juneValue - julyData[index]));
-    const maxDifferenceIndex = differences.indexOf(Math.max(...differences));
-    const minDifferenceIndex = differences.indexOf(Math.min(...differences));
+    // Prepare annotations object
+    const annotations = {
+      thresholdLine: {
+        type: 'line',
+        yMin: threshold,
+        yMax: threshold,
+        borderColor: 'rgb(255, 0, 0)',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        label: {
+          display: true,
+          content: `Threshold: ${threshold} kWh`,
+          position: 'end'
+        }
+      }
+    };
 
-    const chart = new Chart(ctx, {
+    // Add difference lines if enabled and we have data for both months
+    if (showDifferenceLines && currentMonthData.length && previousMonthData.length) {
+      annotations.maxDiffLine = {
+        type: 'line',
+        yMin: 0,
+        yMax: Math.max(...currentMonthData, ...previousMonthData),
+        xMin: maxDiffIndex + 0.5,
+        xMax: maxDiffIndex + 0.5,
+        borderColor: 'rgba(0, 255, 0, 0.7)',
+        borderWidth: 2,
+        label: {
+          display: true,
+          content: `Max Diff: ${differences[maxDiffIndex].toFixed(2)} kWh`,
+          position: 'start'
+        }
+      };
+
+      annotations.minDiffLine = {
+        type: 'line',
+        yMin: 0,
+        yMax: Math.max(...currentMonthData, ...previousMonthData),
+        xMin: minDiffIndex + 0.5,
+        xMax: minDiffIndex + 0.5,
+        borderColor: 'rgba(0, 0, 255, 0.7)',
+        borderWidth: 2,
+        label: {
+          display: true,
+          content: `Min Diff: ${differences[minDiffIndex].toFixed(2)} kWh`,
+          position: 'start'
+        }
+      };
+    }
+
+    const newChart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [
           {
-            label: 'June Data',
-            data: juneData,
-            borderColor: 'rgba(75, 192, 192, 1)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            label: `Current Month (${stats.currentMonth || 'No Data'})`,
+            data: stats.currentMonthData || [],
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+            fill: false
           },
           {
-            label: 'July Data',
-            data: julyData,
-            borderColor: 'rgba(255, 99, 132, 1)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-          },
-        ],
+            label: `Previous Month (${stats.previousMonth || 'No Data'})`,
+            data: stats.previousMonthData || [],
+            borderColor: 'rgb(255, 99, 132)',
+            tension: 0.1,
+            fill: false
+          }
+        ]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true, 
+        maintainAspectRatio: false,
         plugins: {
-          legend: {
-            position: 'top',
-          },
           title: {
             display: true,
-            text: 'Daily Data Comparison for June and July',
+            text: 'Daily Electricity Consumption Comparison',
+            font: {
+              size: 16,
+              weight: 'bold'
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
           },
           annotation: {
-            annotations: {
-              maxDiffLine: {
-                type: 'line',
-                yMin: 0,
-                yMax: Math.max(...juneData, ...julyData),
-                xMin: maxDifferenceIndex + 0.5,
-                xMax: maxDifferenceIndex + 0.5,
-                borderColor: 'rgba(0, 255, 0, 1)',
-                borderWidth: 2,
-                label: {
-                  content: 'Max Difference',
-                  enabled: true,
-                  position: 'start',
-                },
-              },
-              minDiffLine: {
-                type: 'line',
-                yMin: 0,
-                yMax: Math.max(...juneData, ...julyData),
-                xMin: minDifferenceIndex + 0.5,
-                xMax: minDifferenceIndex + 0.5,
-                borderColor: 'rgba(0, 0, 255, 1)',
-                borderWidth: 2,
-                label: {
-                  content: 'Min Difference',
-                  enabled: true,
-                  position: 'start',
-                },
-              },
-              thresholdLine: showThresholdLine ? { // Toggle threshold line visibility
-                type: 'line',
-                yMin: thresholdValue,
-                yMax: thresholdValue,
-                borderColor: 'rgba(255, 99, 0, 1)',
-                borderWidth: 2,
-                borderDash: [5, 5], // Dashing effect
-                label: {
-                  content: 'Threshold',
-                  enabled: true,
-                  position: 'start',
-                },
-              } : null,
-            },
-          },
+            annotations: annotations
+          }
         },
         scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Consumption (kWh)',
+              font: {
+                size: 14,
+                weight: 'bold'
+              }
+            }
+          },
           x: {
             title: {
               display: true,
-              text: 'Day of the Month'
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'Value'
+              text: 'Day of Month',
+              font: {
+                size: 14,
+                weight: 'bold'
+              }
             }
           }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
         }
-      },
+      }
     });
 
-    return () => {
-      chart.destroy();
-    };
-  }, [showThresholdLine, thresholdValue]); // Dependency array to re-render when thresholdValue changes
+    setChartInstance(newChart);
+  }, [stats, loading, error, threshold, showDifferenceLines]);
+
+  const handleThresholdChange = (event) => {
+    const value = parseFloat(event.target.value);
+    if (!isNaN(value) && value >= 0) {
+      setThreshold(value);
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!stats) return <div>No data available</div>;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', padding: '20px' }}>
-      <canvas ref={chartRef} style={{ flex: 1, marginRight: '20px' }}></canvas>
-      {stats && (
-        <div
-          style={{
-            width: '700px',
-            padding: '20px',
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            backgroundColor: '#f9f9f9',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            flexDirection: 'row',
-            gap: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-            <h3 style={{ marginBottom: '15px', textAlign: 'center' }}>Statistics</h3>
-            <p><strong>June:</strong></p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-              <div>Average Usage: {stats.june.average_usage.toFixed(2)}</div>
-              <div>Total Cost: {stats.june.total_cost.toFixed(2)}</div>
-              <div>Max Daily Usage: {stats.june.max_usage.toFixed(2)}</div>
-              <div>Min Daily Usage: {stats.june.min_usage.toFixed(2)}</div>
-              <div>Average Daily Usage: {stats.june.avg_daily_usage.toFixed(2)}</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-            <p><strong>July:</strong></p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-              <div>Average Usage: {stats.july.average_usage.toFixed(2)}</div>
-              <div>Total Cost: {stats.july.total_cost.toFixed(2)}</div>
-              <div>Max Daily Usage: {stats.july.max_usage.toFixed(2)}</div>
-              <div>Min Daily Usage: {stats.july.min_usage.toFixed(2)}</div>
-              <div>Average Daily Usage: {stats.july.avg_daily_usage.toFixed(2)}</div>
-            </div>
-          </div>
+    <div>
+      <div style={{ 
+        marginBottom: '20px',
+        display: 'flex',
+        gap: '20px',
+        alignItems: 'center'
+      }}>
+        <div>
+          <label htmlFor="threshold" style={{ marginRight: '10px' }}>
+            Threshold Value (kWh):
+          </label>
+          <input
+            id="threshold"
+            type="number"
+            min="0"
+            step="0.1"
+            value={threshold}
+            onChange={handleThresholdChange}
+            style={{
+              padding: '5px',
+              borderRadius: '4px',
+              border: '1px solid #ccc'
+            }}
+          />
         </div>
-      )}
-      <button onClick={() => setShowThresholdLine(prev => !prev)} style={{ marginTop: '20px' }}>
-        {showThresholdLine ? 'Hide Threshold Line' : 'Show Threshold Line'}
-      </button>
-      <div style={{ marginTop: '20px' }}>
-        <label htmlFor="thresholdValue">Set Threshold Value: </label>
-        <input 
-          id="thresholdValue"
-          type="number"
-          value={thresholdValue}
-          onChange={(e) => setThresholdValue(Number(e.target.value))}
-          style={{ marginLeft: '10px', padding: '5px' }}
-        />
+        
+        <div>
+          <label style={{ marginRight: '10px' }}>
+            <input
+              type="checkbox"
+              checked={showDifferenceLines}
+              onChange={(e) => setShowDifferenceLines(e.target.checked)}
+              style={{ marginRight: '5px' }}
+            />
+            Show Difference Lines
+          </label>
+        </div>
+      </div>
+      
+      <div style={{ 
+        display: 'flex', 
+        gap: '20px',
+        alignItems: 'flex-start'
+      }}>
+        <div style={{ 
+          flex: '1',
+          minWidth: '0',
+          height: '600px'  
+        }}>
+          <canvas ref={chartRef}></canvas>
+        </div>
+
+        {stats.stats && (
+          <div style={{ 
+            width: '300px',  
+            padding: '20px',  
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ 
+              margin: '0 0 15px 0',
+              color: '#333',
+              borderBottom: '2px solid #dee2e6',
+              paddingBottom: '8px',
+              fontSize: '18px'  
+            }}>Statistics</h3>
+            
+            {stats.stats.currentMonth && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ 
+                  color: 'rgb(75, 192, 192)',
+                  margin: '0 0 10px 0',
+                  fontSize: '16px'  
+                }}>{stats.currentMonth}</h4>
+                <div style={{ fontSize: '15px', lineHeight: '1.6' }}>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Average:</strong> {stats.stats.currentMonth.average.toFixed(2)} kWh
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Maximum:</strong> {stats.stats.currentMonth.max.toFixed(2)} kWh
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Minimum:</strong> {stats.stats.currentMonth.min.toFixed(2)} kWh
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Total:</strong> {stats.stats.currentMonth.total.toFixed(2)} kWh
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {stats.stats.previousMonth && (
+              <div>
+                <h4 style={{ 
+                  color: 'rgb(255, 99, 132)',
+                  margin: '0 0 10px 0',
+                  fontSize: '16px'  
+                }}>{stats.previousMonth}</h4>
+                <div style={{ fontSize: '15px', lineHeight: '1.6' }}>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Average:</strong> {stats.stats.previousMonth.average.toFixed(2)} kWh
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Maximum:</strong> {stats.stats.previousMonth.max.toFixed(2)} kWh
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Minimum:</strong> {stats.stats.previousMonth.min.toFixed(2)} kWh
+                  </p>
+                  <p style={{ margin: '5px 0' }}>
+                    <strong>Total:</strong> {stats.stats.previousMonth.total.toFixed(2)} kWh
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
