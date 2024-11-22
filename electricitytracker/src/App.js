@@ -32,7 +32,6 @@ function App() {
             fontSize: '16px',
             margin: 0
           }}>
-            Monitor and analyze your monthly electricity usage
           </p>
         </header>
 
@@ -50,7 +49,6 @@ function App() {
           paddingTop: '20px'
         }}>
           <p style={{ margin: 0 }}>
-            2024 Electricity Consumption Tracker. All rights reserved.
           </p>
         </footer>
       </div>

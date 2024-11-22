@@ -36,9 +36,8 @@ const LineGraph = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {}; // cleanup function
+  }, []); // Only fetch once when component mounts
 
   useEffect(() => {
     if (loading || error || !stats) return;
